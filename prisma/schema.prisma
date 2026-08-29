@@ -14,12 +14,13 @@ enum TransactionStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  balance   Decimal  @default(0) @db.Decimal(18, 2)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  balance      Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   outgoingTransactions Transaction[] @relation("FromUser")
   incomingTransactions Transaction[] @relation("ToUser")

@@ -1,11 +1,15 @@
+import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma";
 import type { CreateUserInput } from "./user.schema";
 
 export async function createUser(input: CreateUserInput) {
+  const passwordHash = await bcrypt.hash(input.password, 12);
+
   return prisma.user.create({
     data: {
       name: input.name,
       email: input.email,
+      passwordHash,
     },
     select: {
       id: true,
@@ -27,9 +31,6 @@ export async function getUsers() {
       balance: true,
       createdAt: true,
       updatedAt: true,
-    },
-    orderBy: {
-      createdAt: "desc",
     },
   });
 }

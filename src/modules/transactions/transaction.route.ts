@@ -9,54 +9,204 @@ import {
 } from "./transaction.schema";
 
 export async function transactionRoutes(app: FastifyInstance) {
-  app.post("/transactions", async (request, reply) => {
-    const result = createTransactionSchema.safeParse(request.body);
+  app.post(
+    "/transactions",
+    {
+      schema: {
+        tags: ["Transactions"],
+        summary: "Create a transaction",
+        description:
+          "Transfer balance from the authenticated user to another user. Requires the Idempotency-Key HTTP header.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+      headers: {
+        type: "object",
+        required: ["Idempotency-Key"],
+        properties: {
+          "Idempotency-Key": {
+            type: "string",
+            description:
+              "Unique key to ensure the transaction is processed only once",
+          },
+        },
+      },
+            
+        body: {
+          type: "object",
+          required: ["fromUserId", "toUserId", "amount"],
+          properties: {
+            fromUserId: {
+              type: "string",
+  
+            },
+            toUserId: {
+              type: "string",
 
-    if (!result.success) {
-      return reply.status(400).send({
-        error: "VALIDATION_ERROR",
-        message: "Invalid request body",
-        details: result.error.flatten(),
-      });
-    }
+            },
+            amount: {
+              type: "string",
+      
+            },
+          },
+        },
+        response: {
+          201: {
+            description: "Transaction successfully created",
+          },
+          400: {
+            description:
+              "Validation error, insufficient balance, or missing idempotency key",
+          },
+          401: {
+            description: "Unauthorized",
+          },
+          403: {
+            description:
+              "Authenticated user cannot create transaction from another account",
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        await request.jwtVerify();
+      } catch {
+        return reply.status(401).send({
+          error: "UNAUTHORIZED",
+          message: "Unauthorized",
+        });
+      }
 
-    const idempotencyKey = request.headers["idempotency-key"];
+      const result = createTransactionSchema.safeParse(request.body);
 
-    if (
-      typeof idempotencyKey !== "string" ||
-      idempotencyKey.trim().length === 0
-    ) {
-      return reply.status(400).send({
-        error: "IDEMPOTENCY_KEY_REQUIRED",
-        message: "Idempotency-Key header is required",
-      });
-    }
+      if (!result.success) {
+        return reply.status(400).send({
+          error: "VALIDATION_ERROR",
+          message: "Invalid request body",
+          details: result.error.flatten(),
+        });
+      }
 
-    const transaction = await createTransaction(
-      result.data,
-      idempotencyKey.trim(),
-    );
+      const userId = request.user.sub;
 
-    return reply.status(201).send({
-      data: transaction,
-    });
-  });
+      if (result.data.fromUserId !== userId) {
+        return reply.status(403).send({
+          error: "FORBIDDEN",
+          message:
+            "You can only create transactions from your own account",
+        });
+      }
 
-  app.get("/transactions", async (request, reply) => {
-    const result = transactionListQuerySchema.safeParse(
-      request.query,
-    );
+      const idempotencyKey = request.headers["idempotency-key"];
 
-    if (!result.success) {
-      return reply.status(400).send({
-        error: "VALIDATION_ERROR",
-        message: "Invalid query parameters",
-        details: result.error.flatten(),
-      });
-    }
+      if (
+        typeof idempotencyKey !== "string" ||
+        idempotencyKey.trim().length === 0
+      ) {
+        return reply.status(400).send({
+          error: "IDEMPOTENCY_KEY_REQUIRED",
+          message: "Idempotency-Key header is required",
+        });
+      }
 
-    const resultData = await getTransactions(result.data);
+      try {
+        const transaction = await createTransaction(
+          result.data,
+          idempotencyKey.trim(),
+        );
 
-    return reply.send(resultData);
-  });
+        return reply.status(201).send({
+          data: transaction,
+        });
+      } catch (error: any) {
+        if (error?.code === "INSUFFICIENT_BALANCE") {
+          return reply.status(400).send({
+            error: "INSUFFICIENT_BALANCE",
+            message: "Insufficient balance",
+          });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.get(
+    "/transactions",
+    {
+      schema: {
+        tags: ["Transactions"],
+        summary: "Get transactions",
+        description:
+          "Get transactions belonging to the authenticated user with pagination.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        querystring: {
+          type: "object",
+          properties: {
+            page: {
+              type: "integer",
+              minimum: 1,
+              default: 1,
+
+            },
+            limit: {
+              type: "integer",
+              minimum: 1,
+              default: 10,
+   
+            },
+          },
+        },
+        response: {
+          200: {
+            description: "Transactions retrieved successfully",
+          },
+          400: {
+            description: "Invalid query parameters",
+          },
+          401: {
+            description: "Unauthorized",
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        await request.jwtVerify();
+      } catch {
+        return reply.status(401).send({
+          error: "UNAUTHORIZED",
+          message: "Unauthorized",
+        });
+      }
+
+      const result = transactionListQuerySchema.safeParse(
+        request.query,
+      );
+
+      if (!result.success) {
+        return reply.status(400).send({
+          error: "VALIDATION_ERROR",
+          message: "Invalid query parameters",
+          details: result.error.flatten(),
+        });
+      }
+
+      const userId = request.user.sub;
+
+      const resultData = await getTransactions(
+        result.data,
+        userId,
+      );
+
+      return reply.send(resultData);
+    },
+  );
 }

@@ -110,13 +110,27 @@ export async function createTransaction(
 
 export async function getTransactions(
   query: TransactionListQuery,
+  userId: string,
 ) {
   const { page, limit } = query;
 
   const skip = (page - 1) * limit;
 
+  const where = {
+    OR: [
+      {
+        fromUserId: userId,
+      },
+      {
+        toUserId: userId,
+      },
+    ],
+  };
+
   const [transactions, total] = await prisma.$transaction([
     prisma.transaction.findMany({
+      where,
+
       skip,
       take: limit,
 
@@ -156,7 +170,9 @@ export async function getTransactions(
       },
     }),
 
-    prisma.transaction.count(),
+    prisma.transaction.count({
+      where,
+    }),
   ]);
 
   const totalPages = Math.ceil(total / limit);

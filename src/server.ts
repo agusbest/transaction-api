@@ -1,18 +1,17 @@
-import "dotenv/config";
 import { buildApp } from "./app";
 
-const app = buildApp();
+async function start() {
+  const app = await buildApp();
 
-const start = async () => {
   try {
     await app.listen({
-      port: 3000,
+      port: Number(process.env.PORT) || 3000,
       host: "0.0.0.0",
     });
-  } catch (error) {
-    app.log.error(error);
+  } catch (err) {
+    app.log.error(err);
     process.exit(1);
   }
-};
+}
 
 start();

@@ -1,9 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app";
 import { prisma } from "../src/lib/prisma";
 
 describe("Users API", () => {
-  const app = buildApp();
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await prisma.$disconnect();
+  });
 
   beforeEach(async () => {
     await prisma.idempotencyKey.deleteMany();
@@ -18,6 +27,7 @@ describe("Users API", () => {
       payload: {
         name: "Alice",
         email: "alice@test.com",
+        password: "password123",
       },
     });
 
@@ -60,6 +70,7 @@ describe("Users API", () => {
       data: {
         name: "Alice",
         email: "alice@test.com",
+        passwordHash: "test-password-hash",
       },
     });
 
@@ -67,6 +78,7 @@ describe("Users API", () => {
       data: {
         name: "Bob",
         email: "bob@test.com",
+        passwordHash: "test-password-hash",
       },
     });
 
@@ -102,6 +114,7 @@ describe("Users API", () => {
       data: {
         name: "Alice",
         email: "alice@test.com",
+        passwordHash: "test-password-hash",
       },
     });
 

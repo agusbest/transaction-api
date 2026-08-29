@@ -12,6 +12,11 @@ export const createUserSchema = z.object({
     .trim()
     .email("Invalid email address")
     .toLowerCase(),
+
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must not exceed 100 characters"),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
