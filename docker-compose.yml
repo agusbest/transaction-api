@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: transaction-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: transaction_user
+      POSTGRES_PASSWORD: transaction_password
+      POSTGRES_DB: transaction_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transaction-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://transaction_user:transaction_password@postgres:5432/transaction_db
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
