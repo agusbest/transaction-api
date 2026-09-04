@@ -46,7 +46,7 @@ describe("Transactions API", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
         "idempotency-key": "test-transfer-001",
@@ -96,7 +96,7 @@ describe("Transactions API", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
         "idempotency-key": "test-transfer-002",
@@ -167,7 +167,7 @@ describe("Transactions API", () => {
 
     const firstResponse = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
         "idempotency-key": "same-key-001",
@@ -177,7 +177,7 @@ describe("Transactions API", () => {
 
     const secondResponse = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
         "idempotency-key": "same-key-001",
@@ -240,7 +240,7 @@ describe("Transactions API", () => {
     for (let i = 1; i <= 5; i++) {
       await app.inject({
         method: "POST",
-        url: "/transactions",
+        url: "/transfers",
         headers: {
           authorization: `Bearer ${token}`,
           "idempotency-key": `pagination-test-${i}`,
@@ -302,7 +302,7 @@ describe("Transactions API", () => {
     for (let i = 1; i <= 5; i++) {
       await app.inject({
         method: "POST",
-        url: "/transactions",
+        url: "/transfers",
         headers: {
           authorization: `Bearer ${token}`,
           "idempotency-key": `page2-test-${i}`,
@@ -355,7 +355,7 @@ describe("Transactions API", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
         "idempotency-key": "invalid-transaction-001",
@@ -403,7 +403,7 @@ describe("Transactions API", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/transactions",
+      url: "/transfers",
       headers: {
         authorization: `Bearer ${token}`,
       },

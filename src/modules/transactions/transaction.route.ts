@@ -24,7 +24,6 @@ export async function transactionRoutes(app: FastifyInstance) {
       ],
       headers: {
         type: "object",
-        required: ["Idempotency-Key"],
         properties: {
           "Idempotency-Key": {
             type: "string",
