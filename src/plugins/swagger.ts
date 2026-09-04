@@ -13,8 +13,13 @@ export default fp(async (app) => {
       },
       servers: [
         {
-          url: "http://localhost:3000",
-          description: "Local development server",
+          url:
+            process.env.API_URL ||
+            `http://localhost:${process.env.PORT || 3000}`,
+          description:
+            process.env.NODE_ENV === "production"
+              ? "Production"
+              : "Local development",
         },
       ],
       tags: [
