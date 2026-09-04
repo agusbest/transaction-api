@@ -481,13 +481,41 @@ When the API runs inside Docker, it connects to PostgreSQL through the Docker ne
 
 # API Documentation
 
-Swagger/OpenAPI documentation is available at:
+Interactive API documentation is available through Swagger/OpenAPI.
+
+## Local Development
+
+Swagger UI:
 
 ```text
 http://localhost:3000/docs
 ```
 
-The Swagger UI can be used to test the API interactively.
+Health Check:
+
+```text
+http://localhost:3000/health
+```
+
+## Live Deployment
+
+The API has been deployed and is publicly accessible:
+
+* **Live API:** https://transaction-api-6coy.onrender.com
+* **Swagger UI:** https://transaction-api-6coy.onrender.com/docs
+* **Health Check:** https://transaction-api-6coy.onrender.com/health
+
+The Swagger UI provides interactive documentation for all available API endpoints, including:
+
+* Authentication
+* User management
+* Balance management
+* Balance transfers
+* Transaction history
+
+The health check endpoint verifies that the API and database connection are running correctly.
+
+
 
 ---
 
