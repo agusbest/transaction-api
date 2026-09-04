@@ -7,9 +7,15 @@ COPY package*.json ./
 RUN npm ci
 
 COPY prisma ./prisma
+
 COPY prisma7.config.ts ./
+
 COPY tsconfig.json ./
+
 COPY src ./src
+
+# Dummy DATABASE_URL hanya untuk Prisma generate saat build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 
 RUN npx prisma generate
 
