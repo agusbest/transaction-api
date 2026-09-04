@@ -21,6 +21,16 @@ export async function buildApp() {
   await app.register(authPlugin);
   await app.register(swaggerPlugin);
 
+  // Home
+  app.get("/", async () => {
+  return {
+    message: "Transaction API is running",
+    status: "ok",
+    docs: "/docs",
+    health: "/health",
+  };
+});
+
   // Health check
   app.get(
     "/health",
