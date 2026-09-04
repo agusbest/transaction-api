@@ -10,18 +10,18 @@ import {
 
 export async function transactionRoutes(app: FastifyInstance) {
   app.post(
-    "/transactions",
-    {
-      schema: {
-        tags: ["Transactions"],
-        summary: "Create a transaction",
-        description:
-          "Transfer balance from the authenticated user to another user. Requires the Idempotency-Key HTTP header.",
-        security: [
-          {
-            bearerAuth: [],
-          },
-        ],
+  "/transfers",
+  {
+    schema: {
+      tags: ["Transfers"],
+      summary: "Transfer balance",
+      description:
+        "Transfer balance from the authenticated user to another user. Requires the Idempotency-Key HTTP header.",
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
       headers: {
         type: "object",
         required: ["Idempotency-Key"],
@@ -29,110 +29,105 @@ export async function transactionRoutes(app: FastifyInstance) {
           "Idempotency-Key": {
             type: "string",
             description:
-              "Unique key to ensure the transaction is processed only once",
+              "Unique key to ensure the transfer is processed only once",
           },
         },
       },
-            
-        body: {
-          type: "object",
-          required: ["fromUserId", "toUserId", "amount"],
-          properties: {
-            fromUserId: {
-              type: "string",
-  
-            },
-            toUserId: {
-              type: "string",
-
-            },
-            amount: {
-              type: "string",
-      
-            },
+      body: {
+        type: "object",
+        required: ["fromUserId", "toUserId", "amount"],
+        properties: {
+          fromUserId: {
+            type: "string",
           },
-        },
-        response: {
-          201: {
-            description: "Transaction successfully created",
+          toUserId: {
+            type: "string",
           },
-          400: {
-            description:
-              "Validation error, insufficient balance, or missing idempotency key",
-          },
-          401: {
-            description: "Unauthorized",
-          },
-          403: {
-            description:
-              "Authenticated user cannot create transaction from another account",
+          amount: {
+            type: "string",
           },
         },
       },
+      response: {
+        201: {
+          description: "Transfer successfully created",
+        },
+        400: {
+          description:
+            "Validation error, insufficient balance, or missing idempotency key",
+        },
+        401: {
+          description: "Unauthorized",
+        },
+        403: {
+          description:
+            "Authenticated user cannot create transfer from another account",
+        },
+      },
     },
-    async (request, reply) => {
-      try {
-        await request.jwtVerify();
-      } catch {
-        return reply.status(401).send({
-          error: "UNAUTHORIZED",
-          message: "Unauthorized",
-        });
-      }
+  },
+  async (request, reply) => {
+    try {
+      await request.jwtVerify();
+    } catch {
+      return reply.status(401).send({
+        error: "UNAUTHORIZED",
+        message: "Unauthorized",
+      });
+    }
 
-      const result = createTransactionSchema.safeParse(request.body);
+    const result = createTransactionSchema.safeParse(request.body);
 
-      if (!result.success) {
+    if (!result.success) {
+      return reply.status(400).send({
+        error: "VALIDATION_ERROR",
+        message: "Invalid request body",
+        details: result.error.flatten(),
+      });
+    }
+
+    const userId = request.user.sub;
+
+    if (result.data.fromUserId !== userId) {
+      return reply.status(403).send({
+        error: "FORBIDDEN",
+        message: "You can only create transfers from your own account",
+      });
+    }
+
+    const idempotencyKey = request.headers["idempotency-key"];
+
+    if (
+      typeof idempotencyKey !== "string" ||
+      idempotencyKey.trim().length === 0
+    ) {
+      return reply.status(400).send({
+        error: "IDEMPOTENCY_KEY_REQUIRED",
+        message: "Idempotency-Key header is required",
+      });
+    }
+
+    try {
+      const transaction = await createTransaction(
+        result.data,
+        idempotencyKey.trim(),
+      );
+
+      return reply.status(201).send({
+        data: transaction,
+      });
+    } catch (error: any) {
+      if (error?.code === "INSUFFICIENT_BALANCE") {
         return reply.status(400).send({
-          error: "VALIDATION_ERROR",
-          message: "Invalid request body",
-          details: result.error.flatten(),
+          error: "INSUFFICIENT_BALANCE",
+          message: "Insufficient balance",
         });
       }
 
-      const userId = request.user.sub;
-
-      if (result.data.fromUserId !== userId) {
-        return reply.status(403).send({
-          error: "FORBIDDEN",
-          message:
-            "You can only create transactions from your own account",
-        });
-      }
-
-      const idempotencyKey = request.headers["idempotency-key"];
-
-      if (
-        typeof idempotencyKey !== "string" ||
-        idempotencyKey.trim().length === 0
-      ) {
-        return reply.status(400).send({
-          error: "IDEMPOTENCY_KEY_REQUIRED",
-          message: "Idempotency-Key header is required",
-        });
-      }
-
-      try {
-        const transaction = await createTransaction(
-          result.data,
-          idempotencyKey.trim(),
-        );
-
-        return reply.status(201).send({
-          data: transaction,
-        });
-      } catch (error: any) {
-        if (error?.code === "INSUFFICIENT_BALANCE") {
-          return reply.status(400).send({
-            error: "INSUFFICIENT_BALANCE",
-            message: "Insufficient balance",
-          });
-        }
-
-        throw error;
-      }
-    },
-  );
+      throw error;
+    }
+  },
+);
 
   app.get(
     "/transactions",

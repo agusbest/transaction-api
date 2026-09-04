@@ -1,68 +1,149 @@
 # Transaction API
 
-A backend REST API for handling user balances and money transfers.
+A backend REST API for managing users, account balances, and balance transfers.
 
-Built as a technical assessment using **Node.js, TypeScript, Fastify, PostgreSQL, Prisma, Zod, Pino, and Vitest**.
+This project was built as a **Backend Developer Technical Assessment** using Node.js and TypeScript, with a focus on transaction integrity, concurrency safety, idempotency, authentication, validation, automated testing, and production-ready backend practices.
 
-## Tech Stack
+---
 
-* **Node.js** — Runtime
-* **TypeScript** — Programming language
-* **Fastify** — Web framework
-* **PostgreSQL 17** — Database
-* **Prisma 7** — ORM
-* **Zod** — Request validation
-* **Pino** — Structured logging
-* **Vitest** — Automated testing
-* **Docker / Docker Compose** — Local development and containerization
+## Project Overview
+
+Transaction API allows authenticated users to:
+
+- Register an account
+- Login using email and password
+- View user information
+- View current account balance
+- Transfer balance to another user
+- View transaction history
+- Use pagination for transaction history
+- Safely retry transfers using an `Idempotency-Key`
+
+The application ensures that balance transfers are processed atomically and safely under concurrent requests.
+
+### Main Architecture
+
+The application follows a modular service-based architecture:
+
+```text
+Client
+  │
+  ▼
+Fastify Routes
+  │
+  ├── Authentication
+  ├── Users
+  ├── Transfers
+  └── Transactions
+  │
+  ▼
+Service Layer
+  │
+  ▼
+Prisma ORM
+  │
+  ▼
+PostgreSQL
+```
+
+Responsibilities are separated between:
+
+- **Routes** — HTTP endpoints, authentication, request validation, and responses
+- **Schemas** — Request validation using Zod
+- **Services** — Business logic
+- **Prisma** — Database access and transactions
+- **PostgreSQL** — Persistent storage and database-level integrity
+- **Pino** — Structured application logging
+
+---
+
+## Technology Stack
+
+| Technology | Version / Purpose |
+|---|---|
+| Node.js | 22+ |
+| TypeScript | Type-safe application development |
+| Fastify | Web framework |
+| PostgreSQL | 17 |
+| Prisma | 7 |
+| Zod | Request validation |
+| JWT | Authentication |
+| bcrypt | Password hashing |
+| Pino | Structured logging |
+| Vitest | Automated testing |
+| Docker | Containerization |
+| Docker Compose | Local infrastructure |
 
 ---
 
 ## Features
 
+### Authentication
+
+- User registration
+- User login
+- Password hashing with bcrypt
+- JWT-based authentication
+- Protected API endpoints
+- Authorization to ensure users can only initiate transfers from their own account
+
 ### Users
 
-* Create user
-* Get all users
-* Get user by ID
-* User balance tracking
+- Create user
+- Get all users
+- Get user by ID
+- Get current balance
+- Balance stored using PostgreSQL `DECIMAL`
 
 ### Transactions
 
-* Transfer balance between users
-* Validate sender and receiver
-* Validate sufficient balance
-* Atomic balance updates using database transactions
-* Transaction history
-* Pagination
-* Idempotency protection
-* Request validation
+- Transfer balance between users
+- Validate sender
+- Validate receiver
+- Prevent transfer to the same account
+- Validate transfer amount
+- Validate sufficient balance
+- Atomic balance updates
+- Database transaction support
+- Concurrency-safe balance handling
+- Idempotency protection
+- Transaction history
 
 ### Reliability
 
-* Idempotency-Key support to prevent duplicate transfers
-* Database transactions for atomic balance updates
-* Input validation with Zod
-* Centralized error handling
-* Structured logging with Pino
+- PostgreSQL transactions
+- Row-level locking for concurrent balance updates
+- Database constraints
+- Unique idempotency keys
+- Zod request validation
+- Centralized error handling
+- Structured logging
+- JWT authentication
 
 ---
 
-## Project Structure
+# Project Structure
 
 ```text
 transaction-api/
+│
 ├── prisma/
 │   ├── migrations/
 │   └── schema.prisma
 │
 ├── src/
 │   ├── generated/
+│   │
 │   ├── lib/
 │   │   ├── app-error.ts
 │   │   └── prisma.ts
 │   │
 │   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── auth.route.ts
+│   │   │   ├── auth.schema.ts
+│   │   │   └── auth.service.ts
+│   │   │
 │   │   ├── transactions/
 │   │   │   ├── transaction.route.ts
 │   │   │   ├── transaction.schema.ts
@@ -74,39 +155,59 @@ transaction-api/
 │   │       └── user.service.ts
 │   │
 │   ├── plugins/
-│   │   └── error-handler.ts
+│   │   ├── auth.ts
+│   │   ├── error-handler.ts
+│   │   └── swagger.ts
 │   │
 │   ├── app.ts
 │   └── server.ts
 │
 ├── tests/
+│   ├── auth.test.ts
 │   ├── users.test.ts
-│   └── transactions.test.ts
+│   ├── transactions.test.ts
+│   └── concurrency.test.ts
 │
+├── prisma7.config.ts
 ├── Dockerfile
 ├── docker-compose.yml
-├── prisma7.config.ts
 ├── .env.example
 ├── package.json
-└── README.md
+├── tsconfig.json
+├── README.md
+└── AI-USAGE.md
 ```
 
 ---
 
-# Requirements
+# Prerequisites
 
-Before running locally without Docker:
+## Recommended Setup
 
-* Node.js 22+
-* PostgreSQL 17+
+The recommended setup uses Docker for PostgreSQL.
 
-For the recommended setup, Docker Desktop is sufficient.
+Required:
+
+- Node.js 22+
+- Docker Desktop
+- Docker Compose
+
+PostgreSQL does **not** need to be installed separately when using the Docker setup.
+
+## Native PostgreSQL Setup
+
+Docker is not mandatory if PostgreSQL is already installed locally.
+
+Required:
+
+- Node.js 22+
+- PostgreSQL 17+
 
 ---
 
-# Environment Variables
+# Environment Configuration
 
-Create `.env` from `.env.example`:
+Create the environment file from `.env.example`:
 
 ```bash
 cp .env.example .env
@@ -116,106 +217,134 @@ Example:
 
 ```env
 DATABASE_URL="postgresql://transaction_user:transaction_password@localhost:5433/transaction_db"
+JWT_SECRET="change-this-to-a-secure-random-secret"
 PORT=3000
 NODE_ENV=development
 ```
 
-The `.env` file should not be committed to Git.
+### Environment Variables
+
+| Variable | Description | Example |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://transaction_user:transaction_password@localhost:5433/transaction_db` |
+| `JWT_SECRET` | Secret used to sign JWT tokens | `change-this-to-a-secure-random-secret` |
+| `PORT` | API server port | `3000` |
+| `NODE_ENV` | Application environment | `development` |
+
+Do not commit `.env` to Git.
+
+Production environments should use a strong randomly generated `JWT_SECRET`.
 
 ---
 
-# Running with Docker
+# Installation
 
-Docker Compose runs both the API and PostgreSQL.
-
-### 1. Build the containers
+Clone the repository:
 
 ```bash
-docker compose build
+git clone <repository-url>
+cd transaction-api
 ```
 
-### 2. Start the services
-
-```bash
-docker compose up -d
-```
-
-### 3. Check the containers
-
-```bash
-docker compose ps
-```
-
-Expected services:
-
-```text
-transaction-api
-transaction-api-postgres
-```
-
-### 4. Apply database migrations
-
-```bash
-docker compose exec api npx prisma migrate deploy
-```
-
-If the database is already up to date:
-
-```text
-No pending migrations to apply.
-```
-
-### 5. Check API logs
-
-```bash
-docker compose logs api
-```
-
-The API runs on:
-
-```text
-http://localhost:3000
-```
-
-### 6. Stop the services
-
-```bash
-docker compose down
-```
-
-To also remove the PostgreSQL data volume:
-
-```bash
-docker compose down -v
-```
-
-> `docker compose down -v` deletes the PostgreSQL Docker volume and therefore removes the local database data.
-
----
-
-# Running Locally
-
-If running the API directly with Node.js:
-
-### 1. Install dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### 2. Generate Prisma Client
+Generate Prisma Client:
 
 ```bash
 npx prisma generate
 ```
 
-### 3. Apply development migrations
+Create `.env`:
 
 ```bash
-npx prisma migrate dev
+cp .env.example .env
 ```
 
-### 4. Start development server
+Update the environment variables if necessary.
+
+---
+
+# Database Setup
+
+## Using Docker
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Apply migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+Seed demo users:
+
+```bash
+npm run db:seed
+```
+
+The seed creates two demo users.
+
+### Demo Accounts
+
+```text
+Alice
+Email: alice@example.com
+Password: password123
+Balance: 1000.00
+```
+
+```text
+Bob
+Email: bob@example.com
+Password: password123
+Balance: 500.00
+```
+
+These accounts are intended for local development and testing only.
+
+---
+
+## Reset Database
+
+To reset the development database:
+
+```bash
+npx prisma migrate reset
+```
+
+This will remove existing data and re-run the migrations.
+
+After resetting, run the seed again if necessary:
+
+```bash
+npm run db:seed
+```
+
+> Do not use database reset commands against a production database.
+
+---
+
+# Running the Application
+
+## Option 1 — Docker PostgreSQL + Local Node.js
+
+This is the recommended development workflow.
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Then start the API locally:
 
 ```bash
 npm run dev
@@ -227,13 +356,106 @@ API:
 http://localhost:3000
 ```
 
+Health check:
+
+```text
+http://localhost:3000/health
+```
+
+Swagger UI:
+
+```text
+http://localhost:3000/docs
+```
+
+In this mode, **do not start the API container** because the local Node.js process already uses port `3000`.
+
 ---
 
-# Database
+## Option 2 — Full Docker
 
-The application uses PostgreSQL.
+Docker Compose can run both the API and PostgreSQL.
 
-Database configuration for Docker:
+Build the containers:
+
+```bash
+docker compose build
+```
+
+Start the services:
+
+```bash
+docker compose up -d
+```
+
+Check running services:
+
+```bash
+docker compose ps
+```
+
+Expected containers:
+
+```text
+transaction-api
+transaction-api-postgres
+```
+
+Apply migrations:
+
+```bash
+docker compose exec api npx prisma migrate deploy
+```
+
+Run seed data:
+
+```bash
+docker compose exec api npm run db:seed
+```
+
+View API logs:
+
+```bash
+docker compose logs api
+```
+
+Follow logs:
+
+```bash
+docker compose logs -f api
+```
+
+API:
+
+```text
+http://localhost:3000
+```
+
+Swagger:
+
+```text
+http://localhost:3000/docs
+```
+
+Stop the services:
+
+```bash
+docker compose down
+```
+
+To remove the PostgreSQL data volume as well:
+
+```bash
+docker compose down -v
+```
+
+> `docker compose down -v` permanently removes the local PostgreSQL Docker volume and its data.
+
+---
+
+# Docker Database Configuration
+
+The Docker PostgreSQL configuration uses:
 
 ```text
 Database: transaction_db
@@ -241,83 +463,31 @@ User:     transaction_user
 Port:     5433 (host)
 ```
 
-Inside the Docker network, the API connects to PostgreSQL through:
+PostgreSQL listens on its standard internal container port:
 
 ```text
-postgres:5432
+5432
 ```
 
-The main database entities are:
-
-### User
-
-Stores user information and current balance.
+The host maps:
 
 ```text
-users
-├── id
-├── name
-├── email
-├── balance
-├── createdAt
-└── updatedAt
+localhost:5433 → PostgreSQL container:5432
 ```
 
-### Transaction
-
-Stores money transfers.
-
-```text
-transactions
-├── id
-├── fromUserId
-├── toUserId
-├── amount
-├── status
-├── createdAt
-└── updatedAt
-```
-
-### IdempotencyKey
-
-Stores idempotency keys used to prevent duplicate transaction processing.
-
-```text
-idempotency_keys
-├── id
-├── key
-├── userId
-├── transactionId
-└── createdAt
-```
+When the API runs inside Docker, it connects to PostgreSQL through the Docker network rather than through `localhost`.
 
 ---
 
-# Database Migration
+# API Documentation
 
-Prisma migrations are stored in:
+Swagger/OpenAPI documentation is available at:
 
 ```text
-prisma/migrations/
+http://localhost:3000/docs
 ```
 
-For development:
-
-```bash
-npx prisma migrate dev
-```
-
-For an existing/production database:
-
-```bash
-npx prisma migrate deploy
-```
-
-When using Docker:
-
-```bash
-docker compose exec api npx prisma migrate deploy
-```
+The Swagger UI can be used to test the API interactively.
 
 ---
 
@@ -329,12 +499,14 @@ Base URL:
 http://localhost:3000
 ```
 
-## Users
+---
 
-### Create User
+## Authentication
+
+### Register
 
 ```http
-POST /users
+POST /auth/register
 ```
 
 Request:
@@ -342,7 +514,8 @@ Request:
 ```json
 {
   "name": "Alice",
-  "email": "alice@example.com"
+  "email": "alice@example.com",
+  "password": "password123"
 }
 ```
 
@@ -355,22 +528,113 @@ Response:
     "name": "Alice",
     "email": "alice@example.com",
     "balance": "0",
-    "createdAt": "2026-08-28T08:20:23.316Z",
-    "updatedAt": "2026-08-28T08:20:23.316Z"
+    "createdAt": "2026-09-04T07:00:00.000Z",
+    "updatedAt": "2026-09-04T07:00:00.000Z"
   }
 }
 ```
 
-### Get Users
+Password is securely hashed using bcrypt and is never returned in the response.
+
+---
+
+## Login
+
+```http
+POST /auth/login
+```
+
+Request:
+
+```json
+{
+  "email": "alice@example.com",
+  "password": "password123"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "accessToken": "jwt-token"
+  }
+}
+```
+
+Use the returned token in protected requests:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+---
+
+# Users
+
+## Create User
+
+```http
+POST /users
+```
+
+Authentication:
+
+```text
+Not required
+```
+
+Request:
+
+```json
+{
+  "name": "Charlie",
+  "email": "charlie@example.com",
+  "password": "password123"
+}
+```
+
+A newly created user starts with:
+
+```text
+balance: 0
+```
+
+The API does not allow users to specify an initial balance during registration.
+
+---
+
+## Get All Users
 
 ```http
 GET /users
 ```
 
-### Get User
+Authentication:
+
+```text
+Required
+```
+
+Example:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+---
+
+## Get User
 
 ```http
 GET /users/:id
+```
+
+Authentication:
+
+```text
+Required
 ```
 
 Example:
@@ -381,20 +645,51 @@ GET /users/cmtco902g0001ocvbm94hvgvm
 
 ---
 
-# Transactions
-
-## Create Transaction
+## Get Current Balance
 
 ```http
-POST /transactions
+GET /users/:id/balance
 ```
 
-The request requires an `Idempotency-Key` header.
+Authentication:
 
-Example:
+```text
+Required
+```
+
+Response example:
+
+```json
+{
+  "data": {
+    "userId": "user-id",
+    "balance": "750"
+  }
+}
+```
+
+---
+
+# Transfers
+
+## Create Transfer
 
 ```http
+POST /transfers
+```
+
+Authentication:
+
+```text
+Required
+```
+
+Required headers:
+
+```http
+Authorization: Bearer <accessToken>
 Idempotency-Key: transfer-001
+Content-Type: application/json
 ```
 
 Request:
@@ -417,8 +712,8 @@ Example response:
     "toUserId": "receiver-user-id",
     "amount": "250",
     "status": "completed",
-    "createdAt": "2026-08-28T08:20:23.316Z",
-    "updatedAt": "2026-08-28T08:20:23.316Z"
+    "createdAt": "2026-09-04T07:00:00.000Z",
+    "updatedAt": "2026-09-04T07:00:00.000Z"
   }
 }
 ```
@@ -428,16 +723,35 @@ A successful transfer deducts the amount from the sender and adds it to the rece
 Example:
 
 ```text
-Alice: 1000 → 750
-Bob:    500  → 750
+Before:
+
+Alice: 1000
+Bob:    500
+
+Transfer: 250
+
+After:
+
+Alice: 750
+Bob:    750
 ```
+
+The authenticated user is only allowed to create a transfer where `fromUserId` matches the authenticated user's ID.
 
 ---
 
-## Get Transactions
+# Transactions
+
+## Get Transaction History
 
 ```http
 GET /transactions
+```
+
+Authentication:
+
+```text
+Required
 ```
 
 Supports pagination.
@@ -453,62 +767,227 @@ Response:
 ```json
 {
   "data": [],
-  "pagination": {
+  "meta": {
     "page": 1,
     "limit": 10,
     "total": 0,
-    "totalPages": 0
+    "totalPages": 0,
+    "hasNextPage": false,
+    "hasPreviousPage": false
   }
 }
 ```
 
 Transactions are ordered by newest first.
 
+The transaction history is scoped to the authenticated user.
+
 ---
 
 # Idempotency
 
-The transaction endpoint requires an `Idempotency-Key` header.
+The transfer endpoint requires an `Idempotency-Key` header.
 
 Example:
 
 ```http
-Idempotency-Key: transfer-001
+Idempotency-Key: transfer-alice-bob-001
 ```
 
-If the same request is retried with the same idempotency key, the transaction is not processed again.
+The key prevents the same transfer from being processed multiple times when a client retries a request.
 
 Example:
 
 ```text
-Initial balance
+Initial balance:
 
 Alice: 1000
 Bob:    500
 
 First request:
-Transfer 250
 
-Alice: 750
-Bob:   750
+Transfer 500
 
-Retry with the same Idempotency-Key:
+Alice: 500
+Bob:   1000
 
-Alice: 750
-Bob:   750
+Retry using the same Idempotency-Key:
+
+Alice: 500
+Bob:   1000
 
 Transactions created: 1
 ```
 
-This protects the API from duplicate transfers caused by retries or repeated requests.
+A repeated request with the same idempotency key returns the previously created transaction instead of creating another transaction.
+
+The idempotency key is protected by a database-level unique constraint for the authenticated user.
+
+---
+
+# Concurrency Handling
+
+Transfers use a database transaction to ensure that balance updates are atomic.
+
+The sender and receiver balance records are locked during the critical part of the transfer operation.
+
+This prevents race conditions such as:
+
+```text
+Initial balance:
+
+Alice = 1000
+```
+
+Two concurrent requests:
+
+```text
+Request A → transfer 800
+Request B → transfer 800
+```
+
+Without proper concurrency control, both requests could read the same initial balance and incorrectly succeed.
+
+With the transaction and row-level locking strategy:
+
+```text
+Request A → succeeds
+Request B → fails with insufficient balance
+```
+
+The resulting balance can never become negative because both operations cannot independently spend the same available balance.
+
+---
+
+# Database Design
+
+The application uses PostgreSQL with Prisma ORM.
+
+## User
+
+Stores user account information and current balance.
+
+```text
+users
+
+├── id
+├── name
+├── email
+├── passwordHash
+├── balance
+├── createdAt
+└── updatedAt
+```
+
+Important constraints:
+
+- `id` is the primary key
+- `email` is unique
+- `balance` uses PostgreSQL `DECIMAL`
+- Passwords are stored as bcrypt hashes
+
+---
+
+## Transaction
+
+Stores balance transfer history.
+
+```text
+transactions
+
+├── id
+├── fromUserId
+├── toUserId
+├── amount
+├── status
+├── createdAt
+└── updatedAt
+```
+
+Relationships:
+
+```text
+User
+ ├── outgoingTransactions
+ └── incomingTransactions
+
+Transaction
+ ├── fromUser
+ └── toUser
+```
+
+Indexes are used on commonly queried fields such as:
+
+- `fromUserId`
+- `toUserId`
+- `status`
+- `createdAt`
+
+---
+
+## IdempotencyKey
+
+Stores idempotency information.
+
+```text
+idempotency_keys
+
+├── id
+├── key
+├── userId
+├── transactionId
+└── createdAt
+```
+
+A unique constraint on:
+
+```text
+(key, userId)
+```
+
+prevents the same user from processing the same idempotency key multiple times.
+
+---
+
+# Database Migration
+
+Prisma migrations are stored in:
+
+```text
+prisma/migrations/
+```
+
+For development:
+
+```bash
+npx prisma migrate dev
+```
+
+For an existing database:
+
+```bash
+npx prisma migrate deploy
+```
+
+Generate Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+When running the API inside Docker:
+
+```bash
+docker compose exec api npx prisma migrate deploy
+```
 
 ---
 
 # Validation and Error Handling
 
-Request bodies are validated using Zod.
+Request validation is performed using Zod.
 
-Example validation error:
+Example:
 
 ```json
 {
@@ -518,23 +997,137 @@ Example validation error:
 }
 ```
 
-Common transaction errors include:
+Common errors include:
 
 ```text
+VALIDATION_ERROR
+UNAUTHORIZED
+FORBIDDEN
+USER_NOT_FOUND
 SENDER_NOT_FOUND
 RECEIVER_NOT_FOUND
 INSUFFICIENT_BALANCE
 IDEMPOTENCY_KEY_REQUIRED
-VALIDATION_ERROR
+EMAIL_ALREADY_EXISTS
 ```
 
-HTTP status codes are used according to the type of error.
+HTTP status codes are used according to the type of error:
+
+```text
+400 Bad Request
+401 Unauthorized
+403 Forbidden
+404 Not Found
+409 Conflict
+500 Internal Server Error
+```
+
+Unexpected server errors are handled centrally and sensitive implementation details such as stack traces, passwords, JWT secrets, and database credentials are not exposed to API clients.
+
+---
+
+# Authentication and Authorization
+
+The API uses JWT authentication.
+
+After successful login, the API returns an access token.
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+Authorization is also enforced for transfers.
+
+A user cannot create a transfer from another user's account:
+
+```text
+Authenticated User: Alice
+
+fromUserId: Bob
+```
+
+The API returns:
+
+```http
+403 Forbidden
+```
+
+This prevents authenticated users from impersonating another account when initiating transfers.
+
+---
+
+# Logging
+
+The application uses Pino for structured logging.
+
+Important application events include:
+
+- Transfer created
+- Transfer completed
+- Transfer failed
+- Unexpected errors
+
+Sensitive information is intentionally excluded from logs, including:
+
+- Passwords
+- Password hashes
+- JWT tokens
+- JWT secrets
+- Database credentials
 
 ---
 
 # Testing
 
-The project uses Vitest for automated API testing.
+The project uses **Vitest** for automated testing.
+
+Run all tests:
+
+```bash
+npm test
+```
+
+Run tests in watch mode:
+
+```bash
+npm run test:watch
+```
+
+The tests cover important application behavior including:
+
+## Users
+
+- Create user successfully
+- Reject invalid user data
+- Get all users
+- Get user by ID
+- Return 404 when user does not exist
+
+## Authentication
+
+- Successful login
+- Invalid credentials
+- Protected endpoint without JWT
+
+## Transfers
+
+- Successful transfer
+- Insufficient balance
+- Invalid amount
+- Invalid request data
+- Missing sender
+- Missing receiver
+- Missing idempotency key
+- Duplicate idempotency request
+- Sender balance verification
+- Receiver balance verification
+- Transaction count verification
+
+## Concurrency
+
+Concurrent transfers are tested to verify that a user's balance cannot be overspent due to race conditions.
 
 Run:
 
@@ -542,41 +1135,13 @@ Run:
 npm test
 ```
 
-Current test coverage includes:
-
-### Users
-
-* Create user successfully
-* Reject invalid user data
-* Get all users
-* Get user by ID
-* Return 404 when user does not exist
-
-### Transactions
-
-* Create transaction successfully
-* Reject transaction when balance is insufficient
-* Reject invalid transaction data
-* Handle missing sender
-* Handle missing receiver
-* Require idempotency key
-* Prevent duplicate transaction processing
-* Verify sender balance
-* Verify receiver balance
-* Verify transaction count
-
-Expected result:
-
-```text
-Test Files  2 passed
-Tests       12 passed
-```
+All tests require a working PostgreSQL database according to the configured `DATABASE_URL`.
 
 ---
 
 # Build
 
-Compile TypeScript:
+Compile the TypeScript application:
 
 ```bash
 npm run build
@@ -588,70 +1153,345 @@ The compiled application is generated in:
 dist/
 ```
 
-The production entry point is:
+Production entry point:
 
 ```text
 dist/server.js
 ```
+
+Start the compiled application:
+
+```bash
+npm start
+```
+
+---
+
+# Health Check
+
+The application provides a health-check endpoint:
+
+```http
+GET /health
+```
+
+Example:
+
+```text
+http://localhost:3000/health
+```
+
+This endpoint can be used by Docker, deployment platforms, monitoring systems, or load balancers to verify that the API is running.
 
 ---
 
 # Docker Architecture
 
 ```text
-                 ┌─────────────────────┐
-                 │       Client        │
-                 │ Postman / Browser   │
-                 └──────────┬──────────┘
-                            │
-                            │ HTTP :3000
-                            ▼
-                 ┌─────────────────────┐
-                 │    API Container    │
-                 │ Node.js + Fastify   │
-                 │      :3000          │
-                 └──────────┬──────────┘
-                            │
-                            │ postgres:5432
-                            ▼
-                 ┌─────────────────────┐
-                 │ PostgreSQL Container│
-                 │     PostgreSQL 17   │
-                 │      :5432          │
-                 └─────────────────────┘
+                    ┌─────────────────────┐
+                    │       Client        │
+                    │  Swagger / Postman  │
+                    └──────────┬──────────┘
+                               │
+                               │ HTTP :3000
+                               ▼
+                    ┌─────────────────────┐
+                    │    API Container    │
+                    │  Node.js + Fastify  │
+                    │       :3000         │
+                    └──────────┬──────────┘
+                               │
+                               │ postgres:5432
+                               ▼
+                    ┌─────────────────────┐
+                    │ PostgreSQL Container│
+                    │    PostgreSQL 17    │
+                    │       :5432         │
+                    └─────────────────────┘
+```
+
+Host PostgreSQL port:
+
+```text
+localhost:5433
+```
+
+API port:
+
+```text
+localhost:3000
 ```
 
 ---
 
 # Quick Start
 
-For the easiest setup:
+## Recommended Development Setup
+
+Make sure Docker Desktop is running.
+
+Clone the repository:
 
 ```bash
 git clone <repository-url>
 cd transaction-api
-
-docker compose build
-docker compose up -d
-
-docker compose exec api npx prisma migrate deploy
 ```
 
-Then access:
-
-```text
-http://localhost:3000
-```
-
-Run automated tests:
+Install dependencies:
 
 ```bash
 npm install
-npm test
+```
+
+Create environment file:
+
+```bash
+cp .env.example .env
+```
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Generate Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+Apply migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+Seed demo users:
+
+```bash
+npm run db:seed
+```
+
+Start the API:
+
+```bash
+npm run dev
+```
+
+Access:
+
+```text
+API:
+http://localhost:3000
+
+Swagger:
+http://localhost:3000/docs
+
+Health:
+http://localhost:3000/health
+```
+
+Demo login:
+
+```text
+Email: alice@example.com
+Password: password123
 ```
 
 ---
 
-## License
+# Useful Commands
 
-This project was created as a technical assessment.
+```bash
+# Install dependencies
+npm install
+
+# Development server
+npm run dev
+
+# Build
+npm run build
+
+# Production server
+npm start
+
+# Run tests
+npm test
+
+# Watch tests
+npm run test:watch
+
+# Generate Prisma Client
+npx prisma generate
+
+# Development migration
+npx prisma migrate dev
+
+# Deploy migrations
+npx prisma migrate deploy
+
+# Seed database
+npm run db:seed
+
+# Reset database
+npx prisma migrate reset
+
+# Open Prisma Studio
+npx prisma studio
+```
+
+---
+
+# Technical Decisions
+
+## Database Design
+
+PostgreSQL was selected because the application requires strong transactional guarantees and relational consistency.
+
+Balances use `DECIMAL(18,2)` rather than floating-point numbers to avoid precision problems when handling monetary values.
+
+Database constraints and indexes are used in addition to application-level validation.
+
+---
+
+## Transaction Strategy
+
+Balance transfers are executed inside a database transaction.
+
+The transfer operation performs:
+
+```text
+1. Validate idempotency key
+2. Lock required user rows
+3. Validate sender and receiver
+4. Validate sufficient balance
+5. Deduct sender balance
+6. Add receiver balance
+7. Create transaction record
+8. Store idempotency key
+9. Commit transaction
+```
+
+If any operation fails, the database transaction is rolled back so that partial balance updates cannot occur.
+
+---
+
+## Concurrency Strategy
+
+The implementation uses database-level row locking inside a transaction.
+
+This prevents concurrent transfers from reading and modifying the same sender balance simultaneously.
+
+Database-level concurrency control is preferred over relying only on application-level checks because the database is the authoritative source of balance state.
+
+---
+
+## Idempotency Strategy
+
+Idempotency is implemented using a dedicated `IdempotencyKey` table.
+
+The combination of:
+
+```text
+key + userId
+```
+
+is unique.
+
+The idempotency record is created as part of the same database transaction as the transfer.
+
+This ensures that retries cannot create duplicate transactions or deduct the balance twice.
+
+---
+
+## Authentication Strategy
+
+JWT is used for stateless API authentication.
+
+Passwords are hashed using bcrypt before being stored in the database.
+
+Passwords are never stored or returned in plain text.
+
+Authorization is additionally enforced for transfer operations so that the authenticated user can only transfer funds from their own account.
+
+---
+
+## Error Handling Strategy
+
+Validation errors are handled using Zod.
+
+Expected business errors are converted into appropriate HTTP responses.
+
+Unexpected errors are handled centrally to avoid exposing:
+
+- Stack traces
+- Database details
+- Passwords
+- JWT secrets
+- Internal implementation details
+
+Structured logs are used for debugging and operational visibility.
+
+---
+
+# Known Limitations
+
+This project is intentionally scoped for the technical assessment.
+
+The following features are not implemented:
+
+- Refresh tokens
+- Password reset
+- Email verification
+- Account lockout / brute-force protection
+- Rate limiting
+- Multi-currency support
+- External payment provider integration
+- Distributed tracing
+- Background job processing
+- Advanced fraud detection
+- Production-grade secrets management
+
+For production, the application could be improved with:
+
+- Refresh token rotation
+- Rate limiting
+- Stronger password policies
+- Account lockout and login monitoring
+- Secrets management such as a cloud secret manager
+- Redis for distributed caching and rate limiting
+- Distributed tracing
+- Metrics and monitoring
+- CI/CD pipelines
+- Database replication and backup strategies
+- More extensive integration and load testing
+- Horizontal scaling behind a load balancer
+
+These features were intentionally excluded to keep the implementation focused on the assessment requirements.
+
+---
+
+# AI Usage
+
+AI-assisted development details are documented separately in:
+
+```text
+AI-USAGE.md
+```
+
+The document describes:
+
+- AI tools used
+- Areas where AI assistance was used
+- Code and architecture assisted by AI
+- An example of an incorrect AI-generated suggestion
+- Manual review and testing performed by the candidate
+
+All application logic was reviewed, tested, and verified before inclusion in the project.
+
+---
+
+# License
+
+This project was created as a technical assessment and is intended for evaluation purposes.
